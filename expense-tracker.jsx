@@ -1,7 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+const { useState, useEffect } = React;
 
-export default function ExpenseTracker() {
+// X icon component (replacing lucide-react import)
+const X = ({ size = 24 }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
+
+function ExpenseTracker() {
   const [expenses, setExpenses] = useState([]);
   const [income, setIncome] = useState([]);
   const [description, setDescription] = useState('');
@@ -12,36 +28,26 @@ export default function ExpenseTracker() {
 
   useEffect(() => {
     setMounted(true);
-    // Load expenses from storage
-    const loadExpenses = async () => {
+    // Load expenses from localStorage
+    const loadExpenses = () => {
       try {
-        const keys = await window.storage.list('expense:');
-        if (keys && keys.keys) {
-          const loadedExpenses = await Promise.all(
-            keys.keys.map(async (key) => {
-              const result = await window.storage.get(key);
-              return result ? JSON.parse(result.value) : null;
-            })
-          );
-          setExpenses(loadedExpenses.filter(Boolean).sort((a, b) => b.timestamp - a.timestamp));
+        const stored = localStorage.getItem('expenses');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setExpenses(parsed.sort((a, b) => b.timestamp - a.timestamp));
         }
       } catch (error) {
         console.log('Starting fresh - no saved expenses');
       }
     };
     
-    // Load income from storage
-    const loadIncome = async () => {
+    // Load income from localStorage
+    const loadIncome = () => {
       try {
-        const keys = await window.storage.list('income:');
-        if (keys && keys.keys) {
-          const loadedIncome = await Promise.all(
-            keys.keys.map(async (key) => {
-              const result = await window.storage.get(key);
-              return result ? JSON.parse(result.value) : null;
-            })
-          );
-          setIncome(loadedIncome.filter(Boolean).sort((a, b) => b.timestamp - a.timestamp));
+        const stored = localStorage.getItem('income');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setIncome(parsed.sort((a, b) => b.timestamp - a.timestamp));
         }
       } catch (error) {
         console.log('Starting fresh - no saved income');
@@ -52,7 +58,7 @@ export default function ExpenseTracker() {
     loadIncome();
   }, []);
 
-  const addEntry = async () => {
+  const addEntry = () => {
     if (description.trim() && amount && parseFloat(amount) > 0) {
       const newEntry = {
         id: Date.now().toString(),
@@ -65,11 +71,13 @@ export default function ExpenseTracker() {
       
       try {
         if (entryType === 'expense') {
-          await window.storage.set(`expense:${newEntry.id}`, JSON.stringify(newEntry));
-          setExpenses([newEntry, ...expenses]);
+          const updatedExpenses = [newEntry, ...expenses];
+          setExpenses(updatedExpenses);
+          localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
         } else {
-          await window.storage.set(`income:${newEntry.id}`, JSON.stringify(newEntry));
-          setIncome([newEntry, ...income]);
+          const updatedIncome = [newEntry, ...income];
+          setIncome(updatedIncome);
+          localStorage.setItem('income', JSON.stringify(updatedIncome));
         }
         setDescription('');
         setAmount('');
@@ -86,22 +94,24 @@ export default function ExpenseTracker() {
     }
   };
 
-  const deleteExpense = async (id) => {
+  const deleteExpense = (id) => {
+    const updatedExpenses = expenses.filter(exp => exp.id !== id);
+    setExpenses(updatedExpenses);
     try {
-      await window.storage.delete(`expense:${id}`);
+      localStorage.setItem('expenses', JSON.stringify(updatedExpenses));
     } catch (error) {
-      console.log('Storage delete failed, continuing anyway');
+      console.log('Storage update failed, continuing anyway');
     }
-    setExpenses(expenses.filter(exp => exp.id !== id));
   };
 
-  const deleteIncome = async (id) => {
+  const deleteIncome = (id) => {
+    const updatedIncome = income.filter(inc => inc.id !== id);
+    setIncome(updatedIncome);
     try {
-      await window.storage.delete(`income:${id}`);
+      localStorage.setItem('income', JSON.stringify(updatedIncome));
     } catch (error) {
-      console.log('Storage delete failed, continuing anyway');
+      console.log('Storage update failed, continuing anyway');
     }
-    setIncome(income.filter(inc => inc.id !== id));
   };
 
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
